@@ -1,0 +1,29 @@
+import httpx
+import json
+
+TEST_CASES = [
+    {"text": "URGENT: Your account will be suspended in 24 hours. Verify now: http://fake-bank-login.com", "expected": "Phishing"},
+    {"text": "Hi team, reminder that standup is at 10am tomorrow. See you there!", "expected": "Safe"},
+    {"text": "You've won $5000! Claim your prize now by entering your bank details: http://claim-prize-now.net", "expected": "Phishing"},
+    {"text": "Your Amazon order #4471 has shipped and will arrive Thursday.", "expected": "Safe"},
+    {"text": "IT Support: Your password expires today, reset immediately at http://company-helpdesk.info/reset or lose access.", "expected": "Phishing"},
+    {"text": "Thanks for the meeting notes, looks good. Will review by Friday.", "expected": "Safe"},
+]
+
+correct = 0
+print(f"{'#':<3}{'Expected':<12}{'Predicted':<12}{'Risk':<8}{'Match'}")
+print("-" * 50)
+
+for i, case in enumerate(TEST_CASES, 1):
+    try:
+        r = httpx.post("http://localhost:8000/analyze", json={"email_text": case["text"]}, timeout=120)
+        result = r.json()
+        predicted = result.get("classification", "Unknown")
+        match = predicted == case["expected"]
+        correct += match
+        print(f"{i:<3}{case['expected']:<12}{predicted:<12}{result.get('risk_score', '?'):<8}{'✓' if match else '✗'}")
+    except Exception as e:
+        print(f"{i:<3}{case['expected']:<12}ERROR: {e}")
+
+print("-" * 50)
+print(f"Accuracy: {correct}/{len(TEST_CASES)} ({round(correct/len(TEST_CASES)*100)}%)")
