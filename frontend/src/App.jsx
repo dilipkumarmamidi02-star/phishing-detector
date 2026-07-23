@@ -262,7 +262,7 @@ export default function App() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("https://mamididilip.pythonanywhere.com/analyze", {
+      const res = await fetch("https://phishing-detector-backend-nine.vercel.app/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_text: text }),
@@ -397,7 +397,7 @@ export default function App() {
     setChatInput("");
     setChatLoading(true);
     try {
-      const res = await fetch("https://mamididilip.pythonanywhere.com/chat", {
+      const res = await fetch("https://phishing-detector-backend-nine.vercel.app/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, context: result }),
