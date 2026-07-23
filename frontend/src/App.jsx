@@ -262,7 +262,7 @@ export default function App() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("http://localhost:8000/analyze", {
+      const res = await fetch("https://mamididilip.pythonanywhere.com/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email_text: text }),
@@ -397,7 +397,7 @@ export default function App() {
     setChatInput("");
     setChatLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/chat", {
+      const res = await fetch("https://mamididilip.pythonanywhere.com/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, context: result }),
