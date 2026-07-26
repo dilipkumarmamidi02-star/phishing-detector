@@ -347,4 +347,11 @@ def chat(request: Request, req: ChatRequest, x_api_key: str = Header(default="")
         )
         return {"answer": completion.choices[0].message.content}
     except Exception as e:
-        return {"answer": f"Sorry, I could not process that: {str(e)}"}
+        error_str = str(e).lower()
+        if "rate_limit" in error_str or "429" in error_str:
+            friendly = "The AI assistant has hit its daily usage limit and will be back shortly — please try again in a few minutes."
+        elif "timeout" in error_str:
+            friendly = "That took too long to process. Please try asking again."
+        else:
+            friendly = "Sorry, I could not process that right now. Please try again shortly."
+        return {"answer": friendly}
