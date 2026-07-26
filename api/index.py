@@ -181,7 +181,7 @@ def rule_based_text_score(text: str) -> dict:
         score += min(len(hits) * 12, 50)
         flags.append(f"Contains {len(hits)} urgency/credential-harvesting keyword(s): {', '.join(hits[:3])}")
 
-    if re.search(r"\b(24 hours?|immediately|within \d+ (hours?|minutes?))\b", lower):
+    if re.search(r"\b(24 hours?|immediately|within \d+ (hours?|minutes?)|expires? (in|within) \d+ (hours?|minutes?)|link expires?)\b", lower):
         score += 15
         flags.append("Contains a tight, artificial deadline")
 
