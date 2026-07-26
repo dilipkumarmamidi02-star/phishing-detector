@@ -124,6 +124,14 @@ def fetch_url_content(url: str) -> str:
     except Exception as e:
         return f"[Could not fetch URL: {url}. Error: {str(e)}]"
 
+def normalize_homoglyphs(text: str) -> str:
+    """Map common leetspeak/lookalike character substitutions back to letters,
+    so 'amaz0n' or 'payp4l' are still caught as brand impersonation."""
+    substitutions = {
+        "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a",
+    }
+    return "".join(substitutions.get(ch, ch) for ch in text)
+
 def rule_based_url_score(url: str) -> dict:
     score = 0
     flags = []
@@ -145,10 +153,11 @@ def rule_based_url_score(url: str) -> dict:
     if "@" in url:
         score += 20
         flags.append("URL contains '@' (can mask real destination)")
+    normalized_domain = normalize_homoglyphs(domain)
     for brand in BRAND_KEYWORDS:
-        if brand in domain and not domain.endswith(f"{brand}.com"):
-            score += 25
-            flags.append(f"Brand keyword '{brand}' present but domain isn't the real {brand} domain")
+        if (brand in domain or brand in normalized_domain) and not domain.endswith(f"{brand}.com"):
+            score += 30
+            flags.append(f"Brand keyword '{brand}' present (possibly disguised with lookalike characters) but domain isn't the real {brand} domain")
             break
     if parsed.scheme != "https":
         score += 10
