@@ -262,9 +262,9 @@ export default function App() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("https://phishing-detector-backend-nine.vercel.app/analyze", {
+      const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-API-Key": import.meta.env.VITE_API_KEY || "" },
         body: JSON.stringify({ email_text: text }),
       });
       const data = await res.json();
@@ -298,12 +298,37 @@ export default function App() {
     }
   };
 
+  const htmlToText = (html) => {
+    if (!html) return "";
+    return html
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|tr|li|h[1-6])>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n\s*\n+/g, "\n\n")
+      .trim();
+  };
+
   const extractBody = (payload) => {
     if (!payload) return "";
-    if (payload.body?.data) return decodeBase64Url(payload.body.data);
+    if (payload.body?.data) {
+      const decoded = decodeBase64Url(payload.body.data);
+      return payload.mimeType === "text/html" ? htmlToText(decoded) : decoded;
+    }
     if (payload.parts) {
       const plainPart = payload.parts.find((p) => p.mimeType === "text/plain");
       if (plainPart?.body?.data) return decodeBase64Url(plainPart.body.data);
+      const htmlPart = payload.parts.find((p) => p.mimeType === "text/html");
+      if (htmlPart?.body?.data) return htmlToText(decodeBase64Url(htmlPart.body.data));
       for (const part of payload.parts) {
         const nested = extractBody(part);
         if (nested) return nested;
@@ -397,9 +422,9 @@ export default function App() {
     setChatInput("");
     setChatLoading(true);
     try {
-      const res = await fetch("https://phishing-detector-backend-nine.vercel.app/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-API-Key": import.meta.env.VITE_API_KEY || "" },
         body: JSON.stringify({ question, context: result }),
       });
       const data = await res.json();
