@@ -5,6 +5,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 from groq import Groq
+import google.generativeai as genai
 import json, re, httpx, os, socket, ipaddress, unicodedata, datetime
 from urllib.parse import urlparse
 
@@ -16,6 +17,9 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 GROQ_MODEL = "llama-3.3-70b-versatile"
 API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "")
 
@@ -250,7 +254,7 @@ Rules:
 - Keep every string concise (under 20 words).
 - Do not add any text before or after the JSON object."""
 
-def call_llm(content: str) -> dict:
+def call_groq(content: str) -> dict:
     completion = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
@@ -261,8 +265,33 @@ def call_llm(content: str) -> dict:
         response_format={"type": "json_object"},
     )
     raw = completion.choices[0].message.content
-    parsed = extract_json(raw)
-    return validate_llm_output(parsed)
+    return extract_json(raw)
+
+def call_gemini(content: str) -> dict:
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY not configured")
+    model = genai.GenerativeModel(
+        "gemini-1.5-flash",
+        system_instruction=SYSTEM_PROMPT,
+        generation_config={"response_mime_type": "application/json", "temperature": 0.1},
+    )
+    response = model.generate_content(
+        f"--- BEGIN UNTRUSTED EMAIL/LINK CONTENT ---\n{content}\n--- END UNTRUSTED CONTENT ---"
+    )
+    return extract_json(response.text)
+
+def call_llm(content: str) -> dict:
+    try:
+        parsed = call_groq(content)
+        result = validate_llm_output(parsed)
+        result["_engine_used"] = "groq-llama-3.3-70b-versatile"
+        return result
+    except Exception as groq_error:
+        print(f"Groq failed, trying Gemini: {repr(groq_error)}")
+        parsed = call_gemini(content)
+        result = validate_llm_output(parsed)
+        result["_engine_used"] = "gemini-1.5-flash (fallback)"
+        return result
 
 @app.post("/api/analyze")
 @limiter.limit("10/minute")
@@ -329,7 +358,7 @@ def analyze(request: Request, req: EmailRequest, x_api_key: str = Header(default
         "suspicious_phrases": llm_result.get("suspicious_phrases", []),
         "recommendations": llm_result.get("recommendations", []),
         "precautions": llm_result.get("precautions", []),
-        "engine": "groq-llama-3.3-70b + rule-based-ml" if not llm_failed else "rule-based-ml (LLM fallback)",
+        "engine": (llm_result.pop("_engine_used", "groq-llama-3.3-70b") + " + rule-based-ml") if not llm_failed else "rule-based-ml (LLM fallback)",
         "ml_layer": {"score": ml_score, "flags": ml_flags},
         "llm_layer": {"score": llm_score},
         "flagged_for_review": flagged_for_review,
