@@ -326,9 +326,17 @@ export default function App() {
     }
     if (payload.parts) {
       const plainPart = payload.parts.find((p) => p.mimeType === "text/plain");
-      if (plainPart?.body?.data) return decodeBase64Url(plainPart.body.data);
       const htmlPart = payload.parts.find((p) => p.mimeType === "text/html");
+      const plainText = plainPart?.body?.data ? decodeBase64Url(plainPart.body.data) : "";
+
+      // Some senders (Skool, Mailchimp, etc.) put a meaningless "view in HTML" stub
+      // as the plain-text part. If it's suspiciously short, prefer the real HTML content.
+      const isStub = plainText.trim().length < 60 && /html|open it|view this/i.test(plainText);
+
+      if (plainText && !isStub) return plainText;
       if (htmlPart?.body?.data) return htmlToText(decodeBase64Url(htmlPart.body.data));
+      if (plainText) return plainText;
+
       for (const part of payload.parts) {
         const nested = extractBody(part);
         if (nested) return nested;
@@ -342,7 +350,7 @@ export default function App() {
     setGmailError(null);
     try {
       const listRes = await fetch(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15&labelIds=INBOX",
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&labelIds=INBOX",
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const listData = await listRes.json();
