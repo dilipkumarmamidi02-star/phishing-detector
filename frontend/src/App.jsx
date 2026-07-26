@@ -484,7 +484,7 @@ export default function App() {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Inbox sidebar */}
-            <div className="lg:col-span-1 bg-slate-900/70 backdrop-blur rounded-2xl border border-slate-800 p-4 h-fit">
+            <div className="lg:col-span-1 bg-slate-900/70 backdrop-blur rounded-2xl border border-slate-800 p-4 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
               <div className="mb-4">
                 {!gmailConnected ? (
                   <button
