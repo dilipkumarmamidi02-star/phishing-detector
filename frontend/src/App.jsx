@@ -330,8 +330,17 @@ export default function App() {
       const plainText = plainPart?.body?.data ? decodeBase64Url(plainPart.body.data) : "";
 
       // Some senders (Skool, Mailchimp, etc.) put a meaningless "view in HTML" stub
-      // as the plain-text part. If it's suspiciously short, prefer the real HTML content.
-      const isStub = plainText.trim().length < 60 && /html|open it|view this/i.test(plainText);
+      // as the plain-text part instead of real content. Detect by known phrasing, not length,
+      // since these stubs vary from ~40 to 100+ characters across different mail platforms.
+      const stubPatterns = [
+        /understands?\s*html/i,
+        /open it in a program/i,
+        /view this (email|message) in/i,
+        /enable images? to view/i,
+        /click here to view this/i,
+        /if you (cannot|can't) see this/i,
+      ];
+      const isStub = stubPatterns.some((re) => re.test(plainText)) && plainText.trim().length < 300;
 
       if (plainText && !isStub) return plainText;
       if (htmlPart?.body?.data) return htmlToText(decodeBase64Url(htmlPart.body.data));
@@ -350,7 +359,7 @@ export default function App() {
     setGmailError(null);
     try {
       const listRes = await fetch(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&labelIds=INBOX",
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&labelIds=INBOX&q=" + encodeURIComponent("newer_than:15d"),
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const listData = await listRes.json();
