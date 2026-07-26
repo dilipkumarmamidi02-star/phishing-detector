@@ -368,28 +368,39 @@ export default function App() {
         return;
       }
 
-      const detailed = await Promise.all(
-        listData.messages.map(async (m) => {
-          const res = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const msg = await res.json();
-          const headers = msg.payload?.headers || [];
-          const from = headers.find((h) => h.name === "From")?.value || "Unknown sender";
-          const subject = headers.find((h) => h.name === "Subject")?.value || "(no subject)";
-          const body = extractBody(msg.payload) || msg.snippet || "";
-          return {
-            id: msg.id,
-            from,
-            subject,
-            preview: msg.snippet || "",
-            body,
-            flagged: false,
-          };
-        })
-      );
-      setGmailMessages(detailed);
+      const fetchOne = async (m) => {
+        const res = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const msg = await res.json();
+        const headers = msg.payload?.headers || [];
+        const from = headers.find((h) => h.name === "From")?.value || "Unknown sender";
+        const subject = headers.find((h) => h.name === "Subject")?.value || "(no subject)";
+        const body = extractBody(msg.payload) || msg.snippet || "";
+        return {
+          id: msg.id,
+          from,
+          subject,
+          preview: msg.snippet || "",
+          body,
+          flagged: false,
+        };
+      };
+
+      // Throttle: fetch in small batches instead of all-at-once, to stay under Gmail API rate limits.
+      const BATCH_SIZE = 5;
+      const DELAY_MS = 250;
+      const detailed = [];
+      for (let i = 0; i < listData.messages.length; i += BATCH_SIZE) {
+        const batch = listData.messages.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(fetchOne));
+        detailed.push(...results);
+        setGmailMessages([...detailed]); // progressive render as batches complete
+        if (i + BATCH_SIZE < listData.messages.length) {
+          await new Promise((r) => setTimeout(r, DELAY_MS));
+        }
+      }
     } catch (err) {
       setGmailError("Could not load Gmail messages.");
     } finally {

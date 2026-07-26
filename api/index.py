@@ -276,9 +276,16 @@ def analyze(request: Request, req: EmailRequest, x_api_key: str = Header(default
     except Exception as e:
         print(f"LLM analysis failed: {repr(e)}")
         llm_failed = True
+        error_str = str(e).lower()
+        if "rate_limit" in error_str or "429" in error_str:
+            friendly_summary = "AI analysis is temporarily rate-limited. Showing rule-based results only — please try again in a few minutes."
+        elif "timeout" in error_str:
+            friendly_summary = "AI analysis timed out. Showing rule-based results only — please try again."
+        else:
+            friendly_summary = "AI analysis is temporarily unavailable. Showing rule-based results only."
         llm_result = {
-            "classification": "Unknown", "confidence": 0, "threat_type": "LLM Error",
-            "severity": "Medium", "summary": f"LLM analysis unavailable: {str(e)}",
+            "classification": "Unknown", "confidence": 0, "threat_type": "AI Temporarily Unavailable",
+            "severity": "Medium", "summary": friendly_summary,
             "reasons": [], "suspicious_phrases": [], "recommendations": [], "precautions": [],
             "injection_detected": False,
         }
